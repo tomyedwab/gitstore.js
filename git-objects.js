@@ -124,6 +124,20 @@ define(["./sha1", "underscore", "backbone"], function(Sha1, _, Backbone) {
             return this.addRef(new constructor(params));
         },
 
+        // Replace an existing blob with a new child
+        replaceBlob: function(name, params, constructor) {
+            constructor = constructor || GitBlob;
+            var refs = _.map(this.get("refs"), function(ref) {
+                if (ref.get("name") == name) {
+                    return new constructor(params);
+                } else {
+                    return ref;
+                }
+            });
+            this.set("refs", refs);
+            return this;
+        },
+
         // Create a new tree as a child of this tree object
         createTree: function(params) {
             return this.addRef(new GitTree(params));
