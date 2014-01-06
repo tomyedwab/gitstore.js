@@ -15,10 +15,13 @@ define(["./git-objects"], function(objects) {
         },
 
         // Load an object and its descendants from the datastore
-        loadObject: function(name, sha) {
+        _loadObject: function(name, sha, shaTable) {
             var fileContents = window.localStorage[sha];
-            console.log("Loaded", sha, fileContents);
-            return fileContents && objects.GitObject.parse(this, name, fileContents);
+            var ret = fileContents && objects.GitObject.parse(this, name, fileContents, shaTable);
+            if (shaTable) {
+                shaTable[sha] = ret
+            }
+            return ret
         },
 
         // Create a new commit and update the head of the master branch
@@ -29,6 +32,7 @@ define(["./git-objects"], function(objects) {
                 tree: tree,
                 attributes: attributes,
                 message: message
+                // TODO: Generate shaTable
             });
             this.saveObject(commit);
             window.localStorage["refs/heads/master"] = commit.sha();
@@ -38,8 +42,15 @@ define(["./git-objects"], function(objects) {
         // Load the latest head commit tree & all the associated data
         getHeadTree: function() {
             var sha = window.localStorage["refs/heads/master"];
-            var commit = sha && this.loadObject(null, sha);
+            var commit = sha && this._loadObject(null, sha);
             return commit && commit.get("tree");
+        },
+
+        // Load the latest commit & all the associated data
+        getHeadCommit: function() {
+            var sha = window.localStorage["refs/heads/master"];
+            var commit = sha && this._loadObject(null, sha);
+            return commit;
         }
     };
     return {

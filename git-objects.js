@@ -22,15 +22,15 @@ define(["./sha1", "underscore", "backbone"], function(Sha1, _, Backbone) {
     });
 
     // Return a GitObject instance from a flat file
-    GitObject.parse = function(storage, name, fileContents) {
+    GitObject.parse = function(storage, name, fileContents, shaTable) {
         var type = fileContents.split(" ")[0];
         var bodyContent = fileContents.substring(fileContents.indexOf("\0")+1);
         if (type == "blob") {
-            return GitBlob.parse(storage, name, bodyContent);
+            return GitBlob.parse(storage, name, bodyContent, shaTable);
         } else if (type == "tree") {
-            return GitTree.parse(storage, name, bodyContent);
+            return GitTree.parse(storage, name, bodyContent, shaTable);
         } else if (type == "commit") {
-            return GitCommit.parse(storage, name, bodyContent);
+            return GitCommit.parse(storage, name, bodyContent, shaTable);
         } else {
             // TODO: Raise an error
         }
@@ -68,7 +68,7 @@ define(["./sha1", "underscore", "backbone"], function(Sha1, _, Backbone) {
     GitBlob.registerKind("GitBlob", GitBlob);
 
     // Instantiate a blob from the text representation
-    GitBlob.parse = function(storage, name, bodyContent) {
+    GitBlob.parse = function(storage, name, bodyContent, shaTable) {
         var json = JSON.parse(bodyContent);
         json["name"] = name;
 
@@ -193,12 +193,12 @@ define(["./sha1", "underscore", "backbone"], function(Sha1, _, Backbone) {
     });
 
     // Instantiate a blob from the text representation
-    GitTree.parse = function(storage, name, bodyContent) {
+    GitTree.parse = function(storage, name, bodyContent, shaTable) {
         var lines = bodyContent.split("\n");
         var refs = [];
         _.each(lines, function(line) {
             var parts = line.split(" ");
-            refs.push(storage.loadObject(parts[3], parts[2]));
+            refs.push(storage._loadObject(parts[3], parts[2], shaTable));
         });
         return new GitTree({
             name: name,
@@ -239,26 +239,24 @@ define(["./sha1", "underscore", "backbone"], function(Sha1, _, Backbone) {
             return [this.get("tree")];
         },
 
-        // Get a copy of the GitTree for modification
+        // Get the root GitTree
         getTree: function() {
-            return new GitTree({
-                name: this.get("tree").get("name"),
-                refs: this.get("tree").get("refs")
-            });
+            return this.get("tree");
         }
     });
 
     // Instantiate a blob from the text representation
-    GitCommit.parse = function(storage, name, bodyContent) {
+    GitCommit.parse = function(storage, name, bodyContent, shaTable) {
         var parts1 = bodyContent.split("\n\n");
         var tree = null;
         var parentSha = null;
         var attributes = {};
         var lines = parts1[0].split("\n");
+        var shaTable = {};
         _.each(lines, function(line) {
             var parts2 = line.split(" ");
             if (parts2[0] == "tree") {
-                tree = storage.loadObject("ROOT", parts2[1]);
+                tree = storage._loadObject("ROOT", parts2[1], shaTable);
             } else if (parts2[0] == "parent") {
                 parentSha = parts2[1];
             } else {
@@ -269,7 +267,8 @@ define(["./sha1", "underscore", "backbone"], function(Sha1, _, Backbone) {
             parentSha: parentSha,
             tree: tree,
             attributes: attributes,
-            message: parts1[1]
+            message: parts1[1],
+            shaTable: shaTable
         });
     };
 
